@@ -141,6 +141,7 @@ async function logToTableStorage(logData) {
 
 
 // --- API 라우트 ---
+// --- API 라우트 ---
 app.post('/api/predict', upload.single('image'), async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ message: '이미지 파일이 필요합니다.' });
@@ -150,21 +151,25 @@ app.post('/api/predict', upload.single('image'), async (req, res) => {
     let logEntry = { anonymousId, predictions: null, topMatchTag: null, servedAnimalName: null };
 
     try {
-        // 1. Azure Custom Vision REST API 호출 (이미지 데이터 직접 전송)
+        // 1. Azure Custom Vision REST API 호출
         const predictionResponse = await axios.post(customVisionUrl, req.file.buffer, {
             headers: {
                 'Prediction-Key': customVisionPredictionKey,
-                'Content-Type': 'application/octet-stream' // 이미지 바이너리 데이터
+                'Content-Type': 'application/octet-stream'
             }
         });
 
+        // ✅ predictions 변수가 여기서 생성됩니다.
         const predictions = predictionResponse.data.predictions;
         logEntry.predictions = predictions;
 
         let animalInfo = null;
 
         if (predictions && predictions.length > 0) {
-            const confidentPredictions = predictions.filter(p => p.probability > 0.6); // 임계값 설정 가능
+            // ✅ 따라서 predictions를 사용하는 이 로직은 바로 아래에 위치해야 합니다.
+            const confidenceThreshold = parseFloat(process.env.CUSTOM_VISION_CONFIDENCE_THRESHOLD) || 0.5;
+            const confidentPredictions = predictions.filter(p => p.probability > confidenceThreshold);
+
             if (confidentPredictions.length > 0) {
                 const topPrediction = confidentPredictions[0];
                  logEntry.topMatchTag = topPrediction.tagName;
@@ -188,11 +193,10 @@ app.post('/api/predict', upload.single('image'), async (req, res) => {
             res.status(404).json({ message: '일치하는 동물 정보를 찾을 수 없거나, 예측 확률이 낮습니다.', predictions: predictions });
         }
 
-    } catch (error)
-{
+    } catch (error) {
         console.error('Server error:', error.response ? error.response.data : error.message);
-        logEntry.error = error.message; // 로그에 에러 메시지 추가
-        await logToTableStorage(logEntry); // 에러 발생 시에도 로그 시도
+        logEntry.error = error.message;
+        await logToTableStorage(logEntry);
         res.status(500).json({ message: '서버에서 오류가 발생했습니다: ' + error.message });
     }
 });
