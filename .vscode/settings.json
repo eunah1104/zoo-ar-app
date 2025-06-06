@@ -1,0 +1,10 @@
+// .vscode/settings.json
+{
+    "appService.zipIgnorePattern": [
+        "node_modules{,/**}",
+        ".vscode{,/**}",
+        ".env"
+    ],
+    "appService.defaultWebAppToDeploy": "/subscriptions/27db5ec6-d206-4028-b5e1-6004dca5eeef/resourceGroups/7ai-team04/providers/Microsoft.Web/sites/7ai-team04-rg-cv2",
+    "appService.deploySubpath": "."
+}
