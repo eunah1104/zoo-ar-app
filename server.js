@@ -10,16 +10,18 @@ require('dotenv').config(); // .env 파일에서 환경변수 로드
 // console.log("CUSTOM_VISION_PUBLISHED_NAME:", process.env.CUSTOM_VISION_PUBLISHED_NAME);
 
 const express = require('express');
-
 const multer = require('multer');
 const { TableServiceClient, AzureNamedKeyCredential, odata } = require("@azure/data-tables"); // Table Storage SDK
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid'); // 고유 ID 생성
-
 const app = express();
 const port = process.env.PORT || 3000;
+let cachedRanking = []; // 랭킹 결과를 저장할 변수
+let lastCachedTime = null; // 마지막으로 랭킹이 생성된 시간
+const animalData = require('./animal-data.json');
+const { generateQuiz } = require('./quiz-generator.js');
 
 // --- Azure 서비스 클라이언트 설정 ---
 
@@ -69,30 +71,6 @@ if (!customVisionPredictionKey || !customVisionEndpoint || !customVisionProjectI
 }
 // 이미지 데이터를 직접 전송하는 Custom Vision API 엔드포인트 (nostore 옵션 사용)
 const customVisionUrl = `${customVisionEndpoint}customvision/v3.0/Prediction/${customVisionProjectId}/classify/iterations/${customVisionPublishedName}/image/nostore`;
-
-
-// --- 동물 정보 로드 ---
-let animalData = {};
-try {
-    // 현재 파일(server.js)의 절대 경로를 기준으로 'animal-data.json' 파일의 전체 경로를 생성합니다.
-    // 이 방법이 상대 경로보다 훨씬 안정적입니다.
-    const jsonPath = path.join(__dirname, 'animal-data.json');
-
-    // 파일을 텍스트(UTF-8 형식)로 읽어옵니다.
-    const rawData = fs.readFileSync(jsonPath, 'utf-8');
-
-    // 읽어온 텍스트를 JSON 객체로 변환(파싱)합니다.
-    animalData = JSON.parse(rawData);
-
-    // 성공적으로 파일을 불러왔는지 확인하기 위한 로그
-    console.log("animal-data.json 파일을 성공적으로 불러왔습니다.");
-
-} catch (error) {
-    // 만약 오류가 발생하면, 어떤 종류의 오류인지 자세히 출력합니다.
-    // (예: 파일이 정말 없는 경우, 또는 JSON 파일 내부에 오타가 있는 경우 등)
-    console.error("animal-data.json 파일을 읽거나 파싱하는 중 오류가 발생했습니다:", error);
-    process.exit(1); // 치명적인 오류이므로 서버 실행을 중단합니다.
-}
 
 // --- 미들웨어 설정 ---
 app.use(express.static('public'));
@@ -200,6 +178,63 @@ app.post('/api/predict', upload.single('image'), async (req, res) => {
         res.status(500).json({ message: '서버에서 오류가 발생했습니다: ' + error.message });
     }
 });
+// ▼▼▼ api/quiz 라우트  ▼▼▼
+app.get('/api/quiz', (req, res) => {
+    try {
+      // API가 호출될 때마다 새로운 퀴즈 동적으로 생성
+      const newQuiz = generateQuiz(animalData);
+      res.json(newQuiz);
+    } catch (error) {
+      console.error('퀴즈 생성 오류:', error);
+      res.status(500).json({ message: '퀴즈를 생성하는 데 실패했습니다.' });
+    }
+  });
+
+// 1분마다 랭킹을 자동 갱신하는 함수
+async function updateRankingCache() {
+    try {
+        const animalCounts = {};
+        
+        // 요구사항 2: 한국 기준 오늘 날짜 계산 (자정)
+        const nowKST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+        nowKST.setHours(0, 0, 0, 0);
+        const startOfTodayUTC = nowKST.toISOString();
+
+        // 요구사항 1 & 2: 오늘 날짜 & 80% 이상 확률인 로그만 필터링
+        const queryOptions = { 
+            filter: odata`Timestamp ge datetime'${startOfTodayUTC}' and topPredictionProbability ge 0.8` 
+        };
+        const entities = logTableClient.listEntities(queryOptions);
+
+        for await (const entity of entities) {
+            if (entity.servedAnimalName && entity.servedAnimalName !== "No match") {
+                const animalName = entity.servedAnimalName;
+                animalCounts[animalName] = (animalCounts[animalName] || 0) + 1;
+            }
+        }
+        
+        // 요구사항 4: Top 5, 이름과 횟수만 표기
+        cachedRanking = Object.entries(animalCounts)
+            .map(([name, count]) => ({ name, count }))
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 5);
+            
+        lastCachedTime = new Date();
+        //console.log(`[${lastCachedTime.toLocaleString('ko-KR')}] Ranking cache updated.`, cachedRanking);
+
+    } catch (error) {
+        console.error('Error updating ranking cache:', error);
+    }
+}
+
+// 랭킹 데이터를 캐시에서 반환하는 API
+app.get('/api/ranking', (req, res) => {
+    // 요구사항 3: 1분 전 집계 결과 제공 (캐시된 데이터 반환)
+    res.json({
+        data: cachedRanking,
+        lastUpdated: lastCachedTime ? lastCachedTime.toISOString() : null
+    });
+});  
 
 // --- 서버 시작 ---
 app.listen(port, () => {
@@ -207,4 +242,6 @@ app.listen(port, () => {
     console.log(`Ensure your animal-data.json is in the root directory.`);
     console.log(`Ensure your .env file is correctly configured with Azure credentials.`);
     console.log(`Logging to Azure Table Storage: ${LOG_TABLE_NAME}`);
+    updateRankingCache(); // 서버 시작 시 1회 즉시 실행
+    setInterval(updateRankingCache, 60000); // 이후 60초(1분)마다 실행
 });

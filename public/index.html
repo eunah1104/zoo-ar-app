@@ -4,24 +4,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>동물 보감</title>
-    <link rel="stylesheet" href="style.css"> </head>
+    <link rel="stylesheet" href="style.css"> 
+</head>
 <body>
     <div class="container">
-
         <div id="start-page">
             <h1>동물 보감 🦁🦒🐘</h1>
             <p>궁금한 동물 사진을 업로드하거나 찍어보세요!</p>
-            
             <div class="button-group main-buttons">
                 <input type="file" id="imageUploadInput" accept="image/*" style="display: none;">
                 <label for="imageUploadInput" class="custom-button">이미지 업로드</label>
-
                 <button id="takePhotoBtn" class="custom-button">사진찍기</button>
             </div>
-            
             <div class="button-group sub-buttons">
-                 <button class="custom-button disabled">퀴즈 풀러 가기 (준비중)</button>
-                 <button class="custom-button disabled">동물 랭킹 보기 (준비중)</button>
+                <button id="startQuizBtn" class="custom-button">퀴즈 풀러 가기</button>
+                <button id="rankingBtn" class="custom-button">동물 찾기 랭킹 보기</button>
             </div>
         </div>
 
@@ -31,7 +28,7 @@
 
         <div id="result-page" style="display:none;">
             <h2>🙈 동물 찾기 결과 🙊</h2>
-            <img id="resultImage" src="#" alt="분석 이미지" style="max-width: 100%; border-radius: 8px;"/>
+            <img id="resultImage" src="#" alt="분석 이미지"/>
             <p><span id="resultAnimalName"></span>일 확률이 <span id="resultProbability"></span>% 입니다!</p>
             <p id="resultAnimalSummary" class="animal-summary"></p>
             <div class="button-group">
@@ -59,7 +56,34 @@
             <button id="errorRetryBtn" class="custom-button">다시 시도하기</button>
         </div>
 
-    </div>
+        <div id="quiz-page" style="display:none;">
+            <h2 id="quiz-question-number"></h2>
+            <img id="quiz-image" src="#" alt="퀴즈 이미지"/>
+            <p id="quiz-question-text"></p>
+            <div id="quiz-options" class="button-group"></div>
+            <div class="quiz-feedback">
+                <p id="quiz-feedback-text"></p>
+            </div>
+            <div class="quiz-footer">
+                <p class="quiz-score-display">현재 점수: <span id="quiz-score">0</span>점</p>
+                <button id="quiz-next-btn" class="custom-button" style="display: none;">다음 문제</button>
+            </div>
+            <div class="button-group">
+                <button id="quiz-quit-btn" class="custom-button secondary">포기하고 돌아가기</button>
+            </div>
+        </div>
+
+        <div id="ranking-page" style="display:none;">
+            <h2>🏆 동물 찾기 랭킹 Top 5 🏆</h2>
+            <p class="ranking-info">가장 많이 검색된 동물 친구들이에요!</p>
+            <p class="ranking-notice">실시간 집계까지는 약 1분이 소요됩니다.</p>
+            <ol id="ranking-list" class="ranking-list-container"></ol>
+            <div class="button-group">
+                <button id="rankingBackBtn" class="custom-button">시작 페이지로 가기</button>
+            </div>
+        </div>
+
+        </div>
 
     <div id="camera-modal" style="display:none;">
         <video id="camera-view" autoplay playsinline></video>

@@ -162,3 +162,14 @@ input[type="file"] {
     display: flex;
     gap: 20px;
 }
+
+/* 결과 페이지의 이미지 스타일 */
+#resultImage {
+    max-width: 100%;        /* 이미지가 컨테이너보다 커지지 않도록 최대 너비를 100%로 제한 */
+    height: auto;           /* 너비에 맞춰 높이를 자동으로 조절하여 비율 유지 */
+    display: block;         /* 이미지를 블록 요소로 만들어 가운데 정렬 적용 */
+    margin-left: auto;      /* 왼쪽 마진을 최대로 밀어내어 가운데 정렬 (오른쪽과 함께) */
+    margin-right: auto;     /* 오른쪽 마진을 최대로 밀어내어 가운데 정렬 (왼쪽과 함께) */
+    margin-bottom: 20px;    /* 이미지와 아래 텍스트 사이의 간격 추가 */
+    border-radius: 8px;     /* 이미지 모서리를 부드럽게 */
+}
